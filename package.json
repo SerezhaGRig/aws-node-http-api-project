@@ -1,0 +1,7 @@
+{
+  "name": "aws-node-http-api-project",
+  "version": "1.0.0",
+  "dependencies": {
+    "serverless-webpack": "^5.5.5"
+  }
+}
