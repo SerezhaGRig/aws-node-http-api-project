@@ -21,34 +21,60 @@ functions:
       - http:
           path: /else
           method: get
+  addCar:
+    handler: handler.addCar
+    events:
+      - http:
+          path: /addCar
+          method: post
 
 resources:
   Resources:
-    usersTable:
+    Car:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: usersTable
+        TableName: Car
         AttributeDefinitions:
-          - AttributeName: email
-            AttributeType: S
+        - AttributeName: user
+          AttributeType: S
         KeySchema:
-          - AttributeName: email
-            KeyType: HASH
+        - AttributeName: user
+          KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-custom:
-  dynamodb:
-    stages:
-      - dev
-    start:
-      port: 8000
-      inMemory: true
-      heapInitial: 200m
-      heapMax: 1g
-      migrate: true
-      convertEmptyValues: true
+    Models:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Models
+        AttributeDefinitions:
+          - AttributeName: Brand
+            AttributeType: S
+          - AttributeName: Model
+            AttributeType: S
+        KeySchema:
+          - AttributeName: Brand
+            KeyType: HASH
+          - AttributeName: Model
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+
+    Users:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Users
+        AttributeDefinitions:
+          - AttributeName: login
+            AttributeType: S
+        KeySchema:
+          - AttributeName: login
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
 plugins:
   - serverless-webpack

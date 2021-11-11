@@ -1,11 +1,11 @@
 "use strict";
-
-module.exports.hello = async (event) => {
+const querystring = require('querystring');
+module.exports.hello = async (event,context) => {
   return {
     statusCode: 200,
     body: JSON.stringify(
       {
-        message: "Hello world!"
+        message: "Hello world!",
       },
       null,
       2
@@ -13,7 +13,7 @@ module.exports.hello = async (event) => {
   };
 };
 
-module.exports.else = async (event) => {
+module.exports.else = async (event,context) => {
   return {
     statusCode: 200,
     body: JSON.stringify(
@@ -24,4 +24,18 @@ module.exports.else = async (event) => {
         2
     ),
   };
+};
+module.exports.addCar = async (event,context) => {
+    let eventBody = JSON.parse(event.body)
+    return {
+        statusCode: 200,
+        body: JSON.stringify(
+            {
+                message: "Hello else world!",
+                eventBody
+            },
+            null,
+            2
+        ),
+    };
 };
