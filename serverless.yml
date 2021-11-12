@@ -7,16 +7,6 @@ provider:
   name: aws
   runtime: nodejs12.x
   lambdaHashingVersion: '20201221'
-  region: us-east-2
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - dynamodb:Query
-        - dynamodb:Scan
-        - dynamodb:GetItem
-        - dynamodb:PutItem
-        - dynamodb:UpdateItem
-      Resource: "*"
 
 functions:
   hello:
@@ -25,6 +15,12 @@ functions:
       - http:
           path: /
           method: get
+  else:
+    handler: handler.else
+    events:
+      - http:
+          path: /else
+          method: get
   addCar:
     handler: handler.addCar
     events:
@@ -32,65 +28,26 @@ functions:
           path: /addCar
           method: post
 
-  getUserCars:
-    handler: handler.getUserCars
-    events:
-      - http:
-          path: /getUserCars
-          method: post
-
-  getModelsByBrand:
-    handler: handler.getModelsByBrand
-    events:
-      - http:
-          path: /getModelsByBrand
-          method: post
-
-  getBrands:
-    handler: handler.getBrands
-    events:
-      - http:
-          path: /getBrands
-          method: get
-
-  updateCar:
-    handler: handler.updateCar
-    events:
-      - http:
-          path: /updateCar
-          method: post
-  getCarById:
-    handler: handler.getCarById
-    events:
-      - http:
-          path: /getCarById
-          method: post
-
-
 resources:
   Resources:
-    Carsnor:
+    Car:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Carsnor
+        TableName: Car
         AttributeDefinitions:
-        - AttributeName: login
-          AttributeType: S
-        - AttributeName: car_id
+        - AttributeName: user
           AttributeType: S
         KeySchema:
-        - AttributeName: login
+        - AttributeName: user
           KeyType: HASH
-        - AttributeName: car_id
-          KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-    Modelsnor:
+    Models:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Modelsnor
+        TableName: Models
         AttributeDefinitions:
           - AttributeName: Brand
             AttributeType: S
@@ -105,29 +62,15 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-    Usersnor:
+    Users:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Usersnor
+        TableName: Users
         AttributeDefinitions:
           - AttributeName: login
             AttributeType: S
         KeySchema:
           - AttributeName: login
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-
-    Brandsnor:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Brandsnor
-        AttributeDefinitions:
-          - AttributeName: brand
-            AttributeType: S
-        KeySchema:
-          - AttributeName: brand
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
@@ -135,5 +78,4 @@ resources:
 
 plugins:
   - serverless-webpack
-  - serverless-offline
 
