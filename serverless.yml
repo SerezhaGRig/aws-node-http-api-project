@@ -153,6 +153,8 @@ resources:
         UserPoolName: ${self:custom.userPoolName}
         UsernameAttributes:
           - email
+        AutoVerifiedAttributes:
+          - email
         Policies:
           PasswordPolicy:
             MinimumLength: 6
