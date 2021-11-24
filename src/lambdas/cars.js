@@ -16,7 +16,7 @@ module.exports.addCar = async (event,context) => {
         TableName: process.env.CARS_TABLE,
         Item: {
             login,
-            car_id:uuid.v1(),
+            carId:uuid.v1(),
             brand,
             yearval,
             model,
