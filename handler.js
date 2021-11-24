@@ -4,9 +4,13 @@ const  AWS = require("aws-sdk");
 const uuid = require('uuid');
 AWS.config.setPromisesDependency(require('bluebird'));
 const docClient = new AWS.DynamoDB.DocumentClient();
-const CAR_TABLE = "Carsnor"
-const MODELS_TABLE = "Modelsnor"
-const BRANDS_TABLE = "Brandsnor"
+const sqs = new AWS.SQS({apiVersion: '2012-11-05'});
+const sns = new AWS.SNS({apiVersion: '2010-03-31'})
+
+
+const CAR_TABLE = "Cars"
+const MODELS_TABLE = "Models"
+const BRANDS_TABLE = "Brands"
 
 
 
@@ -15,6 +19,52 @@ module.exports.hello = async (event,context) => {
     statusCode: 200,
     body: JSON.stringify(event)
   };
+};
+
+module.exports.compute = async (event,context) => {
+    for (const message of event.Records) {
+        const bodyData = JSON.parse(message.body);
+        let computation = new Promise(function (resolve) {
+            setTimeout(function () {
+                resolve("compleated")
+            },200)
+
+        })
+        let answare = await computation;
+        let params = {
+            Message: answare,
+            TopicArn: process.env.SUPERTOPIC_ARN
+        };
+        await sns.publish(params).promise()
+    }
+}
+
+
+module.exports.computeResultHandler = async (event,context) => {
+    for (const message of event.Records) {
+        const bodyData = JSON.parse(message.body);
+        console.log(bodyData);
+    }
+
+}
+
+
+module.exports.pushComputation = async (event,context) => {
+
+    var params = {
+        MessageAttributes: {
+            "Somedata": {
+                DataType: "String",
+                StringValue: "SomeValue"
+            }
+        },
+        MessageBody: "Information",
+        MessageDeduplicationId: uuid.v1(),
+        MessageGroupId: "Group1",
+        QueueUrl: process.env.THE_QUEUE_URL
+    };
+
+    await sqs.sendMessage(params).promise()
 };
 
 module.exports.addCar = async (event,context) => {
@@ -72,13 +122,11 @@ module.exports.updateCar = async (event,context) => {
         Key: {
             login,
             car_id:id
-
         },
         UpdateExpression,
         ExpressionAttributeValues,
         ReturnValues:"UPDATED_NEW"
     };
-    console.log("myObj:",params)
     try {
         await docClient.update(params).promise()
         response =  {
@@ -189,7 +237,7 @@ module.exports.getBrands = async (event,context) => {
         let data = await docClient.scan(params).promise()
         response =  {
             statusCode: 200,
-            body: "GetItem succeeded: "+ JSON.stringify(data.Items, null, 2),
+            body: "GetItem succeeded: " + JSON.stringify(data.Items, null, 2)
         };
     }
     catch (err) {

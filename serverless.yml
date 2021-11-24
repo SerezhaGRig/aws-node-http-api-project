@@ -10,6 +10,9 @@ provider:
   region: us-east-2
   stage: ${self:custom.currentStage}
   logRetentionInDays: 30
+  environment:
+    THE_QUEUE_URL: { Ref: WorkerQueue }
+    SUPERTOPIC_ARN: { Ref: SuperTopic }
   timeout: 30
   iamRoleStatements:
     - Effect: Allow
@@ -27,6 +30,128 @@ custom:
   userPoolName: test-user-pool-${self:custom.currentStage}
   userPoolClientName: test-user-pool-client-${self:custom.currentStage}
 
+
+
+resources:
+  Resources:
+    Cars:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Carsnor
+        AttributeDefinitions:
+          - AttributeName: login
+            AttributeType: S
+          - AttributeName: car_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: login
+            KeyType: HASH
+          - AttributeName: car_id
+            KeyType: RANGE
+
+    Models:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Modelsnor
+        AttributeDefinitions:
+          - AttributeName: Brand
+            AttributeType: S
+          - AttributeName: Model
+            AttributeType: S
+        KeySchema:
+          - AttributeName: Brand
+            KeyType: HASH
+          - AttributeName: Model
+            KeyType: RANGE
+
+    Users:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Usersnor
+        AttributeDefinitions:
+          - AttributeName: login
+            AttributeType: S
+        KeySchema:
+          - AttributeName: login
+            KeyType: HASH
+
+    Brands:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Brandsnor
+        AttributeDefinitions:
+          - AttributeName: brand
+            AttributeType: S
+        KeySchema:
+          - AttributeName: brand
+            KeyType: HASH
+
+    CognitoUserPool:
+      Type: "AWS::Cognito::UserPool"
+      Properties:
+        MfaConfiguration: OFF
+        UserPoolName: ${self:custom.userPoolName}
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 6
+            RequireLowercase: False
+            RequireNumbers: True
+            RequireSymbols: False
+            RequireUppercase: True
+    CognitoUserPoolClient:
+      Type: "AWS::Cognito::UserPoolClient"
+      Properties:
+        ClientName: ${self:custom.userPoolClientName}
+        GenerateSecret: False
+        UserPoolId:
+          Ref: CognitoUserPool
+    ApiGatewayAuthorizer:
+      DependsOn:
+        - ApiGatewayRestApi
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: cognito-authorizer
+        IdentitySource: method.request.header.Authorization
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        Type: COGNITO_USER_POOLS
+        ProviderARNs:
+          - Fn::GetAtt: [ CognitoUserPool, Arn ]
+
+    SuperTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: SuperTopic
+
+    WorkerQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: WorkerQueue
+        FifoQueue: True
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - DeadLetterQueue
+              - Arn
+          maxReceiveCount: 5
+
+    DeadLetterQueue:
+      Type: AWS::SQS::Queue
+
+
+    CognitoUserPoolArn:
+      Value:
+        Fn::GetAtt:
+          - CognitoUserPool
+          - Arn
+      Export:
+        Name: CognitoUserPoolArn-${self:custom.currentStage}
+
+
 functions:
   hello:
     handler: handler.hello
@@ -38,6 +163,35 @@ functions:
             type: COGNITO_USER_POOLS
             authorizerId:
               Ref: ApiGatewayAuthorizer
+
+  compute:
+    handler: handler.compute
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - WorkerQueue
+              - Arn
+
+  computeResultHandler:
+    handler: handler.computeResultHandler
+    events:
+      - sns:
+          arn:
+            Fn::GetAtt:
+              - SuperTopic
+              - Arn
+          topicName: SuperTopic
+
+  pushComputation:
+    handler: handler.pus
+    events:
+      - http:
+          path: /compute
+          method: post
+
+
+
 
   addCar:
     handler: handler.addCar
@@ -79,116 +233,6 @@ functions:
       - http:
           path: /getCarById
           method: post
-
-
-resources:
-  Resources:
-    Carsnor:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Carsnor
-        AttributeDefinitions:
-        - AttributeName: login
-          AttributeType: S
-        - AttributeName: car_id
-          AttributeType: S
-        KeySchema:
-        - AttributeName: login
-          KeyType: HASH
-        - AttributeName: car_id
-          KeyType: RANGE
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-
-    Modelsnor:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Modelsnor
-        AttributeDefinitions:
-          - AttributeName: Brand
-            AttributeType: S
-          - AttributeName: Model
-            AttributeType: S
-        KeySchema:
-          - AttributeName: Brand
-            KeyType: HASH
-          - AttributeName: Model
-            KeyType: RANGE
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-
-    Usersnor:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Usersnor
-        AttributeDefinitions:
-          - AttributeName: login
-            AttributeType: S
-        KeySchema:
-          - AttributeName: login
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-
-    Brandsnor:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Brandsnor
-        AttributeDefinitions:
-          - AttributeName: brand
-            AttributeType: S
-        KeySchema:
-          - AttributeName: brand
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-    CognitoUserPool:
-      Type: "AWS::Cognito::UserPool"
-      Properties:
-        MfaConfiguration: OFF
-        UserPoolName: ${self:custom.userPoolName}
-        UsernameAttributes:
-          - email
-        AutoVerifiedAttributes:
-          - email
-        Policies:
-          PasswordPolicy:
-            MinimumLength: 6
-            RequireLowercase: False
-            RequireNumbers: True
-            RequireSymbols: False
-            RequireUppercase: True
-    CognitoUserPoolClient:
-      Type: "AWS::Cognito::UserPoolClient"
-      Properties:
-        ClientName: ${self:custom.userPoolClientName}
-        GenerateSecret: False
-        UserPoolId:
-          Ref: CognitoUserPool
-    ApiGatewayAuthorizer:
-      DependsOn:
-        - ApiGatewayRestApi
-      Type: AWS::ApiGateway::Authorizer
-      Properties:
-        Name: cognito-authorizer
-        IdentitySource: method.request.header.Authorization
-        RestApiId:
-          Ref: ApiGatewayRestApi
-        Type: COGNITO_USER_POOLS
-        ProviderARNs:
-          - Fn::GetAtt: [ CognitoUserPool, Arn ]
-  Outputs:
-    CognitoUserPoolArn:
-      Value:
-        Fn::GetAtt:
-          - CognitoUserPool
-          - Arn
-      Export:
-        Name: CognitoUserPoolArn-${self:custom.currentStage}
 plugins:
   - serverless-webpack
   - serverless-offline
