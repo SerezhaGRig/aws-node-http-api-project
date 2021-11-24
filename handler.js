@@ -1,11 +1,8 @@
 "use strict";
-const querystring = require('querystring');
 const  AWS = require("aws-sdk");
 const uuid = require('uuid');
 AWS.config.setPromisesDependency(require('bluebird'));
 const docClient = new AWS.DynamoDB.DocumentClient();
-const sqs = new AWS.SQS({apiVersion: '2012-11-05'});
-const sns = new AWS.SNS({apiVersion: '2010-03-31'})
 
 
 const CAR_TABLE = "Cars"
@@ -21,54 +18,9 @@ module.exports.hello = async (event,context) => {
   };
 };
 
-module.exports.compute = async (event,context) => {
-    for (const message of event.Records) {
-        const bodyData = JSON.parse(message.body);
-        let computation = new Promise(function (resolve) {
-            setTimeout(function () {
-                resolve("compleated")
-            },200)
-
-        })
-        let answare = await computation;
-        let params = {
-            Message: answare,
-            TopicArn: process.env.SUPERTOPIC_ARN
-        };
-        await sns.publish(params).promise()
-    }
-}
-
-
-module.exports.computeResultHandler = async (event,context) => {
-    for (const message of event.Records) {
-        const bodyData = JSON.parse(message.body);
-        console.log(bodyData);
-    }
-
-}
-
-
-module.exports.pushComputation = async (event,context) => {
-
-    var params = {
-        MessageAttributes: {
-            "Somedata": {
-                DataType: "String",
-                StringValue: "SomeValue"
-            }
-        },
-        MessageBody: "Information",
-        MessageDeduplicationId: uuid.v1(),
-        MessageGroupId: "Group1",
-        QueueUrl: process.env.THE_QUEUE_URL
-    };
-
-    await sqs.sendMessage(params).promise()
-};
-
 module.exports.addCar = async (event,context) => {
-    let { brand, yearval, model,regnum, login } = event
+    let bodyData = JSON.parse(event.Records[0].body)
+    let { brand, yearval, model,regnum, login } = bodyData
     let response;
     const params = {
         TableName: CAR_TABLE,
@@ -81,20 +33,8 @@ module.exports.addCar = async (event,context) => {
             regnum
         }
     };
-    try {
-        await docClient.put(params).promise()
-        response =  {
-            statusCode: 200,
-            body: "compleated!",
-        };
-    }
-    catch (err) {
-        response =  {
-            statusCode: 409,
-            body: err.message,
-        };
-    }
-    return response
+    await docClient.put(params).promise()
+    return ''
 
 };
 

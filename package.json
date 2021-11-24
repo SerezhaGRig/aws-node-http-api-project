@@ -7,6 +7,8 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "aws-sdk": "^2.1027.0"
+    "aws-sdk": "^2.1027.0",
+    "serverless-apigateway-service-proxy": "^1.14.0",
+    "serverless-apigw-sqs-plugin": "^1.0.5"
   }
 }

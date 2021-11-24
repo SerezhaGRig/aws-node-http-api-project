@@ -1,7 +1,12 @@
 org: serezha
 app: http-app
-service: aws-node-http-api-project
-frameworkVersion: '2'
+service: aws-node-http-api-pr
+frameworkVersion: '1.83.3'
+
+plugins:
+  - serverless-webpack
+  - serverless-apigateway-service-proxy
+
 
 provider:
   name: aws
@@ -11,8 +16,7 @@ provider:
   stage: ${self:custom.currentStage}
   logRetentionInDays: 30
   environment:
-    THE_QUEUE_URL: { Ref: WorkerQueue }
-    SUPERTOPIC_ARN: { Ref: SuperTopic }
+    THE_QUEUE_URL: { Ref: SQSQueue }
   timeout: 30
   iamRoleStatements:
     - Effect: Allow
@@ -29,6 +33,14 @@ custom:
   currentStage: ${opt:stage, self:custom.defaultStage}
   userPoolName: test-user-pool-${self:custom.currentStage}
   userPoolClientName: test-user-pool-client-${self:custom.currentStage}
+  apiGatewayServiceProxies:
+    - sqs:
+        path: /addCar
+        method: post
+        queueName: { 'Fn::GetAtt': [ 'SQSQueue', 'QueueName' ] }
+        cors: true
+
+
 
 
 
@@ -37,7 +49,7 @@ resources:
     Cars:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Carsnor
+        TableName: Cars
         AttributeDefinitions:
           - AttributeName: login
             AttributeType: S
@@ -48,11 +60,14 @@ resources:
             KeyType: HASH
           - AttributeName: car_id
             KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
     Models:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Modelsnor
+        TableName: Models
         AttributeDefinitions:
           - AttributeName: Brand
             AttributeType: S
@@ -63,28 +78,37 @@ resources:
             KeyType: HASH
           - AttributeName: Model
             KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
     Users:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Usersnor
+        TableName: Users
         AttributeDefinitions:
           - AttributeName: login
             AttributeType: S
         KeySchema:
           - AttributeName: login
             KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
     Brands:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Brandsnor
+        TableName: Brands
         AttributeDefinitions:
           - AttributeName: brand
             AttributeType: S
         KeySchema:
           - AttributeName: brand
             KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
     CognitoUserPool:
       Type: "AWS::Cognito::UserPool"
@@ -122,34 +146,24 @@ resources:
         ProviderARNs:
           - Fn::GetAtt: [ CognitoUserPool, Arn ]
 
-    SuperTopic:
-      Type: AWS::SNS::Topic
-      Properties:
-        TopicName: SuperTopic
 
-    WorkerQueue:
+    DeadMessageQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: WorkerQueue
-        FifoQueue: True
+        QueueName: DeadMessageQueue
+    SQSQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: MyQueue
         RedrivePolicy:
           deadLetterTargetArn:
             Fn::GetAtt:
-              - DeadLetterQueue
+              - DeadMessageQueue
               - Arn
           maxReceiveCount: 5
 
-    DeadLetterQueue:
-      Type: AWS::SQS::Queue
 
 
-    CognitoUserPoolArn:
-      Value:
-        Fn::GetAtt:
-          - CognitoUserPool
-          - Arn
-      Export:
-        Name: CognitoUserPoolArn-${self:custom.currentStage}
 
 
 functions:
@@ -164,41 +178,15 @@ functions:
             authorizerId:
               Ref: ApiGatewayAuthorizer
 
-  compute:
-    handler: handler.compute
-    events:
-      - sqs:
-          arn:
-            Fn::GetAtt:
-              - WorkerQueue
-              - Arn
-
-  computeResultHandler:
-    handler: handler.computeResultHandler
-    events:
-      - sns:
-          arn:
-            Fn::GetAtt:
-              - SuperTopic
-              - Arn
-          topicName: SuperTopic
-
-  pushComputation:
-    handler: handler.pus
-    events:
-      - http:
-          path: /compute
-          method: post
-
-
-
 
   addCar:
     handler: handler.addCar
     events:
-      - http:
-          path: /addCar
-          method: post
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSQueue
+              - Arn
 
   getUserCars:
     handler: handler.getUserCars
@@ -233,7 +221,4 @@ functions:
       - http:
           path: /getCarById
           method: post
-plugins:
-  - serverless-webpack
-  - serverless-offline
 
