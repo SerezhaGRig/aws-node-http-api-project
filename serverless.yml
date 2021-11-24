@@ -15,7 +15,7 @@ provider:
   stage: ${self:custom.currentStage}
   logRetentionInDays: 30
   environment:
-    CAR_TABLE: !Ref CarsDynamoDbTable
+    CARS_TABLE: !Ref CarsDynamoDbTable
     BRANDS_TABLE: !Ref BrandsDynamoDbTable
     MODELS_TABLE: !Ref ModelsDynamoDbTable
     THE_QUEUE_URL: !Ref SQSQueue

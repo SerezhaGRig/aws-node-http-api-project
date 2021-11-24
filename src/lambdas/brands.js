@@ -6,7 +6,7 @@ const resonse = require("../utils/helpers")
 
 module.exports.getBrands = async (event,context) => {
     const params = {
-        TableName: BRANDS_TABLE,
+        TableName: process.env.BRANDS_TABLE,
         Select: "ALL_ATTRIBUTES"
     };
     try {

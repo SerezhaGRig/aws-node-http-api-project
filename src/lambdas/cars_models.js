@@ -7,7 +7,7 @@ const resonse = require("../utils/helpers")
 module.exports.getModelsByBrand = async (event,context) => {
     let { brand } = event
     const params = {
-        TableName: MODELS_TABLE,
+        TableName: process.env.MODELS_TABLE,
         KeyConditionExpression : 'brand = :hkey',
         ExpressionAttributeValues : {
             ':hkey' : brand

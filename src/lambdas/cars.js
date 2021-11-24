@@ -4,12 +4,16 @@ const uuid = require('uuid');
 AWS.config.setPromisesDependency(require('bluebird'));
 const docClient = new AWS.DynamoDB.DocumentClient();
 const resonse = require("../utils/helpers")
+const logger =require("../utils/logger")
 
 module.exports.addCar = async (event,context) => {
+
     let bodyData = JSON.parse(event.Records[0].body)
     let { brand, yearval, model,regnum, login } = bodyData
+    logger.info(bodyData)
+    logger.info(process.env.CARS_TABLE)
     const params = {
-        TableName: CARS_TABLE,
+        TableName: process.env.CARS_TABLE,
         Item: {
             login,
             car_id:uuid.v1(),
@@ -43,7 +47,7 @@ module.exports.updateCar = async (event,context) => {
     }
     UpdateExpression=UpdateExpression.substring(0,UpdateExpression.length-2)
     const params = {
-        TableName: CARS_TABLE,
+        TableName: process.env.CARS_TABLE,
         Key: {
             login,
             carId:id
@@ -65,7 +69,7 @@ module.exports.updateCar = async (event,context) => {
 module.exports.getCarById = async (event,context) => {
     let { login, id } = event
     const params = {
-        TableName: CARS_TABLE,
+        TableName: process.env.CARS_TABLE,
         Key: {
             login,
             carId:id
@@ -85,7 +89,7 @@ module.exports.getCarById = async (event,context) => {
 module.exports.getUserCars = async (event,context) => {
     let { login } = event
     const params = {
-        TableName: CARS_TABLE,
+        TableName: process.env.CARS_TABLE,
         KeyConditionExpression : 'login = :hkey',
         ExpressionAttributeValues : {
             ':hkey' : login
