@@ -16,7 +16,10 @@ provider:
   stage: ${self:custom.currentStage}
   logRetentionInDays: 30
   environment:
-    THE_QUEUE_URL: { Ref: SQSQueue }
+    CAR_TABLE: !Ref CarsDynamoDbTable
+    BRANDS_TABLE: !Ref BrandsDynamoDbTable
+    MODELS_TABLE: !Ref ModelsDynamoDbTable
+    THE_QUEUE_URL: !Ref SQSQueue
   timeout: 30
   iamRoleStatements:
     - Effect: Allow
@@ -37,37 +40,35 @@ custom:
     - sqs:
         path: /addCar
         method: post
-        queueName: { 'Fn::GetAtt': [ 'SQSQueue', 'QueueName' ] }
+        queueName: !GetAtt
+                      - SQSQueue
+                      - QueueName
         cors: true
-
-
-
-
 
 resources:
   Resources:
-    Cars:
+    CarsDynamoDbTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Cars
+        TableName: CarsDynamoDbTable
         AttributeDefinitions:
           - AttributeName: login
             AttributeType: S
-          - AttributeName: car_id
+          - AttributeName: carId
             AttributeType: S
         KeySchema:
           - AttributeName: login
             KeyType: HASH
-          - AttributeName: car_id
+          - AttributeName: carId
             KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-    Models:
+    ModelsDynamoDbTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Models
+        TableName: ModelsDynamoDbTable
         AttributeDefinitions:
           - AttributeName: Brand
             AttributeType: S
@@ -82,24 +83,10 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-    Users:
+    BrandsDynamoDbTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Users
-        AttributeDefinitions:
-          - AttributeName: login
-            AttributeType: S
-        KeySchema:
-          - AttributeName: login
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-
-    Brands:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Brands
+        TableName: BrandsDynamoDbTable
         AttributeDefinitions:
           - AttributeName: brand
             AttributeType: S
@@ -111,7 +98,7 @@ resources:
           WriteCapacityUnits: 1
 
     CognitoUserPool:
-      Type: "AWS::Cognito::UserPool"
+      Type: AWS::Cognito::UserPool
       Properties:
         MfaConfiguration: OFF
         UserPoolName: ${self:custom.userPoolName}
@@ -127,7 +114,7 @@ resources:
             RequireSymbols: False
             RequireUppercase: True
     CognitoUserPoolClient:
-      Type: "AWS::Cognito::UserPoolClient"
+      Type: AWS::Cognito::UserPoolClient
       Properties:
         ClientName: ${self:custom.userPoolClientName}
         GenerateSecret: False
@@ -144,7 +131,9 @@ resources:
           Ref: ApiGatewayRestApi
         Type: COGNITO_USER_POOLS
         ProviderARNs:
-          - Fn::GetAtt: [ CognitoUserPool, Arn ]
+          - !GetAtt
+              - CognitoUserPool
+              - Arn
 
 
     DeadMessageQueue:
@@ -157,7 +146,7 @@ resources:
         QueueName: MyQueue
         RedrivePolicy:
           deadLetterTargetArn:
-            Fn::GetAtt:
+            !GetAtt
               - DeadMessageQueue
               - Arn
           maxReceiveCount: 5
@@ -168,7 +157,7 @@ resources:
 
 functions:
   hello:
-    handler: handler.hello
+    handler: src/lambdas/about.hello
     events:
       - http:
           path: /
@@ -180,43 +169,43 @@ functions:
 
 
   addCar:
-    handler: handler.addCar
+    handler: src/lambdas/cars.addCar
     events:
       - sqs:
           arn:
-            Fn::GetAtt:
+            !GetAtt
               - SQSQueue
               - Arn
 
   getUserCars:
-    handler: handler.getUserCars
+    handler: src/lambdas/cars.getUserCars
     events:
       - http:
           path: /getUserCars
           method: post
 
   getModelsByBrand:
-    handler: handler.getModelsByBrand
+    handler: src/lambdas/cars_models.getModelsByBrand
     events:
       - http:
           path: /getModelsByBrand
           method: post
 
   getBrands:
-    handler: handler.getBrands
+    handler: src/lambdas/brands.getBrands
     events:
       - http:
           path: /getBrands
           method: get
 
   updateCar:
-    handler: handler.updateCar
+    handler: src/lambdas/cars.updateCar
     events:
       - http:
           path: /updateCar
           method: post
   getCarById:
-    handler: handler.getCarById
+    handler: src/lambdas/cars.getCarById
     events:
       - http:
           path: /getCarById
