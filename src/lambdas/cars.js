@@ -3,7 +3,7 @@ const  AWS = require("aws-sdk");
 const uuid = require('uuid');
 AWS.config.setPromisesDependency(require('bluebird'));
 const docClient = new AWS.DynamoDB.DocumentClient();
-const resonse = require("./helper")
+const resonse = require("../utils/helpers")
 
 module.exports.addCar = async (event,context) => {
     let bodyData = JSON.parse(event.Records[0].body)
