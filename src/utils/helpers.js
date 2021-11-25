@@ -1,11 +1,11 @@
 "use strict";
-module.export.response = function(statusCode,body){
+module.exports.response = function(statusCode,body){
     return {
         statusCode,
         body
     }
 }
-module.export.updateExpressionGenerator = function(map,{...updVals}){
+module.exports.updateExpressionGenerator = function(map,{...updVals}){
     let UpdateExpression  = "set "
     let ExpressionAttributeValues = {}
     for(let key in map){
