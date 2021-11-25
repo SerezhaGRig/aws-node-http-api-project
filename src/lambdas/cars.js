@@ -3,7 +3,7 @@ const  AWS = require("aws-sdk");
 const uuid = require('uuid');
 AWS.config.setPromisesDependency(require('bluebird'));
 const docClient = new AWS.DynamoDB.DocumentClient();
-const resonse = require("../utils/helpers")
+const {response, updateExpressionGenerator} = require("../utils/helpers")
 const logger =require("../utils/logger")
 
 module.exports.addCar = async (event,context) => {
@@ -27,7 +27,6 @@ module.exports.addCar = async (event,context) => {
     return ''
 
 };
-
 module.exports.updateCar = async (event,context) => {
     let { brand, yearval, model,regnum, login, id } = event
     let updVals = {brand, yearval, model,regnum}
@@ -37,15 +36,7 @@ module.exports.updateCar = async (event,context) => {
         regnum:":r",
         yearval:":y"
     }
-    let UpdateExpression  = "set "
-    let ExpressionAttributeValues = {}
-    for(let key in map){
-        if(updVals[key]!==undefined){
-            UpdateExpression=UpdateExpression + `${key} = ${map[key]}, `
-            ExpressionAttributeValues[map[key]]=updVals[key]
-        }
-    }
-    UpdateExpression=UpdateExpression.substring(0,UpdateExpression.length-2)
+    let {UpdateExpression, ExpressionAttributeValues} = updateExpressionGenerator(map,{brand, yearval, model,regnum})
     const params = {
         TableName: process.env.CARS_TABLE,
         Key: {

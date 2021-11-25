@@ -2,7 +2,7 @@
 const  AWS = require("aws-sdk");
 AWS.config.setPromisesDependency(require('bluebird'));
 const docClient = new AWS.DynamoDB.DocumentClient();
-const resonse = require("../utils/helpers")
+const {response} = require("../utils/helpers")
 
 module.exports.getBrands = async (event,context) => {
     const params = {
