@@ -1,53 +1,73 @@
 org: serezha
 app: http-app
-service: aws-node-http-api-project
-frameworkVersion: '2'
+service: aws-node-http-api-pr
+frameworkVersion: '1.83.3'
+
+plugins:
+  - serverless-webpack
+  - serverless-apigateway-service-proxy
+
 
 provider:
   name: aws
   runtime: nodejs12.x
-  lambdaHashingVersion: '20201221'
+  region: us-east-2
+  stage: ${self:custom.currentStage}
+  logRetentionInDays: 30
+  environment:
+    CARS_TABLE: !Ref CarsDynamoDbTable
+    BRANDS_TABLE: !Ref BrandsDynamoDbTable
+    MODELS_TABLE: !Ref ModelsDynamoDbTable
+    THE_QUEUE_URL: !Ref SQSQueue
+  timeout: 30
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+      Resource: "*"
 
-functions:
-  hello:
-    handler: handler.hello
-    events:
-      - http:
-          path: /
-          method: get
-  else:
-    handler: handler.else
-    events:
-      - http:
-          path: /else
-          method: get
-  addCar:
-    handler: handler.addCar
-    events:
-      - http:
-          path: /addCar
-          method: post
+custom:
+  defaultStage: dev
+  currentStage: ${opt:stage, self:custom.defaultStage}
+  userPoolName: test-user-pool-${self:custom.currentStage}
+  userPoolClientName: test-user-pool-client-${self:custom.currentStage}
+  apiGatewayServiceProxies:
+    - sqs:
+        path: /addCar
+        method: post
+        queueName: !GetAtt
+                      - SQSQueue
+                      - QueueName
+        cors: true
 
 resources:
   Resources:
-    Car:
+    CarsDynamoDbTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Car
+        TableName: CarsDynamoDbTable
         AttributeDefinitions:
-        - AttributeName: user
-          AttributeType: S
+          - AttributeName: login
+            AttributeType: S
+          - AttributeName: carId
+            AttributeType: S
         KeySchema:
-        - AttributeName: user
-          KeyType: HASH
+          - AttributeName: login
+            KeyType: HASH
+          - AttributeName: carId
+            KeyType: RANGE
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-    Models:
+    ModelsDynamoDbTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Models
+        TableName: ModelsDynamoDbTable
         AttributeDefinitions:
           - AttributeName: Brand
             AttributeType: S
@@ -62,20 +82,131 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-    Users:
+    BrandsDynamoDbTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Users
+        TableName: BrandsDynamoDbTable
         AttributeDefinitions:
-          - AttributeName: login
+          - AttributeName: brand
             AttributeType: S
         KeySchema:
-          - AttributeName: login
+          - AttributeName: brand
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
-plugins:
-  - serverless-webpack
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        MfaConfiguration: OFF
+        UserPoolName: ${self:custom.userPoolName}
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 6
+            RequireLowercase: False
+            RequireNumbers: True
+            RequireSymbols: False
+            RequireUppercase: True
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:custom.userPoolClientName}
+        GenerateSecret: False
+        UserPoolId:
+          Ref: CognitoUserPool
+    ApiGatewayAuthorizer:
+      DependsOn:
+        - ApiGatewayRestApi
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: cognito-authorizer
+        IdentitySource: method.request.header.Authorization
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        Type: COGNITO_USER_POOLS
+        ProviderARNs:
+          - !GetAtt
+              - CognitoUserPool
+              - Arn
+
+
+    DeadMessageQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: DeadMessageQueue
+    SQSQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: MyQueue
+        RedrivePolicy:
+          deadLetterTargetArn:
+            !GetAtt
+              - DeadMessageQueue
+              - Arn
+          maxReceiveCount: 5
+
+
+
+
+
+functions:
+  hello:
+    handler: src/lambdas/about.hello
+    events:
+      - http:
+          path: /
+          method: get
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+
+
+  addCar:
+    handler: src/lambdas/cars.addCar
+    events:
+      - sqs:
+          arn:
+            !GetAtt
+              - SQSQueue
+              - Arn
+
+  getUserCars:
+    handler: src/lambdas/cars.getUserCars
+    events:
+      - http:
+          path: /getUserCars
+          method: post
+
+  getModelsByBrand:
+    handler: src/lambdas/cars_models.getModelsByBrand
+    events:
+      - http:
+          path: /getModelsByBrand
+          method: post
+
+  getBrands:
+    handler: src/lambdas/brands.getBrands
+    events:
+      - http:
+          path: /getBrands
+          method: get
+
+  updateCar:
+    handler: src/lambdas/cars.updateCar
+    events:
+      - http:
+          path: /updateCar
+          method: post
+  getCarById:
+    handler: src/lambdas/cars.getCarById
+    events:
+      - http:
+          path: /getCarById
+          method: post
 

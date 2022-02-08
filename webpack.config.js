@@ -5,7 +5,7 @@ module.exports = {
     mode: slsw.lib.webpack.isLocal ? 'development' : 'production',
     node: false,
     optimization: {
-        minimize: false,
+        minimize: true,
     },
     devtool: 'inline-cheap-module-source-map',
 };
